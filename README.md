@@ -37,20 +37,20 @@ Tasks can be created with functions matching the signature `func(ctx context.Con
 ```go
 // add a task which outputs "World!"
 taskWorld := scheduler.AddTask(func(ctx context.Context) error {
-  fmt.Print("World!")
-  return nil
+    fmt.Print("World!")
+    return nil
 })
 
 // add a task which outputs "Hello"
 taskHello := scheduler.AddTask(func(ctx context.Context) error {
-  fmt.Print("Hello")
-  return nil
+    fmt.Print("Hello")
+    return nil
 })
 
 // add a task which outputs a space (" ")
 taskSeparator := scheduler.AddTask(func(ctx context.Context) error {
-  fmt.Print(" ")
-  return nil
+    fmt.Print(" ")
+    return nil
 })
 ```
 
@@ -70,7 +70,7 @@ The scheduler returns when all tasks are complete, or a task has returned an err
 
 ```go
 if err := scheduler.Run(context.Background()); err != nil {
-	log.Fatalln(err)
+    log.Fatalln(err)
 }
 
 // Outputs:
@@ -85,4 +85,4 @@ if err := scheduler.Run(context.Background()); err != nil {
 
 Internally the scheduler uses a [Directed Acyclic Graph](https://github.com/jackwakefield/graff) to represent the tasks as nodes and their dependencies as edges.
 
-When the scheduler is ran, and when the graph state has changed since the last run, the tasks are [topologically ordered](https://en.wikipedia.org/wiki/Topological_order) into levels using the [Coffman-Graham algorithm](https://en.wikipedia.org/wiki/Coffman–Graham_algorithm).
+When the scheduler is ran, and when the graph state has changed since the scheduler was last ran, the tasks are [topologically ordered](https://en.wikipedia.org/wiki/Topological_order) into levels using the [Coffman-Graham algorithm](https://en.wikipedia.org/wiki/Coffman–Graham_algorithm).
