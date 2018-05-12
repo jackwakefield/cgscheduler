@@ -22,10 +22,25 @@ func newTask(scheduler *Scheduler, function TaskFunc) *Task {
 	}
 }
 
+// Dependencies lists the tasks the this task depends on.
+func (t *Task) Dependencies() []*Task {
+	return t.scheduler.Dependencies(t)
+}
+
+// DependencyCount returns the number of tasks this task depends on.
+func (t *Task) DependencyCount() int {
+	return t.scheduler.DependencyCount(t)
+}
+
 // DependsOn creates a dependency between this task and the dependency task.
 // When ran, the scheduler ensures the dependency task is executed first.
 func (t *Task) DependsOn(dependency *Task) {
 	t.scheduler.AddDependency(t, dependency)
+}
+
+// RemoveDependency removes the dependency between this task and the dependency task.
+func (t *Task) RemoveDependency(dependency *Task) {
+	t.scheduler.RemoveDependency(t, dependency)
 }
 
 // Run executes the task.

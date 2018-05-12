@@ -66,16 +66,14 @@ func (s *Scheduler) TaskCount() int {
 func (s *Scheduler) AddTask(function TaskFunc) *Task {
 	task := newTask(s, function)
 	s.graph.AddNode(task)
-
-	s.dirty = true
+	s.invalidate()
 	return task
 }
 
 // RemoveTask removes the specified task from the scheduler.
 func (s *Scheduler) RemoveTask(task *Task) {
 	s.graph.RemoveNode(task)
-
-	s.dirty = true
+	s.invalidate()
 }
 
 // RemoveTasks removes the specified tasks from the scheduler.
@@ -85,8 +83,23 @@ func (s *Scheduler) RemoveTasks(tasks ...*Task) {
 		nodes[i] = task
 	}
 	s.graph.RemoveNodes(nodes...)
+	s.invalidate()
+}
 
-	s.dirty = true
+// Dependencies lists the tasks the specified task depends on.
+func (s *Scheduler) Dependencies(task *Task) []*Task {
+	edges := s.graph.IncomingEdges(task)
+
+	dependencies := make([]*Task, len(edges))
+	for i, edge := range edges {
+		dependencies[i] = edge.(*Task)
+	}
+	return dependencies
+}
+
+// DependencyCount returns the number of tasks the specified task depends on.
+func (s *Scheduler) DependencyCount(task *Task) int {
+	return s.graph.IncomingEdgeCount(task)
 }
 
 // AddDependency creates a dependency between the specified task itself
@@ -94,21 +107,31 @@ func (s *Scheduler) RemoveTasks(tasks ...*Task) {
 // When ran, the scheduler ensures the dependency task is executed first.
 func (s *Scheduler) AddDependency(task *Task, dependency *Task) {
 	s.graph.AddEdge(dependency, task)
+	s.invalidate()
+}
 
+// RemoveDependency removes the dependency between the specified task itself
+// and the dependency task.
+func (s *Scheduler) RemoveDependency(task *Task, dependency *Task) {
+	s.graph.RemoveEdge(dependency, task)
+	s.invalidate()
+}
+
+func (s *Scheduler) invalidate() {
 	s.dirty = true
 }
 
 func (s *Scheduler) resizeLevels(count int) {
 	currentCount := len(s.tasks)
 
-	// extend or contract the task levels slice depending on the difference
+	// extend or shrink the task levels slice depending on the difference
 	// between the new and old level counts
 	if count < currentCount {
 		for i := count; i < currentCount; i++ {
 			s.tasks[i] = nil
 		}
 
-		s.tasks = s.tasks[:count-1]
+		s.tasks = s.tasks[:count]
 	} else if count > currentCount {
 		extendBy := count - currentCount
 		s.tasks = append(s.tasks, make([][]*Task, extendBy)...)
@@ -118,14 +141,14 @@ func (s *Scheduler) resizeLevels(count int) {
 func (s *Scheduler) resizeTasks(level, count int) {
 	currentCount := len(s.tasks[level])
 
-	// extend or contract the tasks slice depending on the difference
+	// extend or shrink the tasks slice depending on the difference
 	// between the new and old concurrency counts
 	if count < currentCount {
 		for j := count; j < currentCount; j++ {
 			s.tasks[level][j] = nil
 		}
 
-		s.tasks[level] = s.tasks[level][:count-1]
+		s.tasks[level] = s.tasks[level][:count]
 	} else if count > currentCount {
 		extendBy := count - currentCount
 		s.tasks[level] = append(s.tasks[level], make([]*Task, extendBy)...)
@@ -145,12 +168,15 @@ func (s *Scheduler) sort() error {
 		return err
 	}
 
+	// resize the top-level tasks slice to extend or shrink to the new number of levels
 	s.resizeLevels(len(levels))
 
 	for i, tasks := range levels {
 		if s.tasks[i] == nil {
 			s.tasks[i] = make([]*Task, len(tasks))
 		} else {
+			// resize the second-level tasks slice to extend or shrink to the new
+			// number of tasks within the set
 			s.resizeTasks(i, len(tasks))
 		}
 
@@ -164,6 +190,8 @@ func (s *Scheduler) sort() error {
 
 // Run executes the scheduler's tasks.
 func (s *Scheduler) Run(ctx context.Context) error {
+	// check whether the scheduler's state has changed since the last time
+	// it was ran, in which we case we need to sort the task graph
 	if s.dirty {
 		if err := s.sort(); err != nil {
 			return err
@@ -172,6 +200,8 @@ func (s *Scheduler) Run(ctx context.Context) error {
 		s.dirty = false
 	}
 
+	// run each set of tasks, the count of the tasks within each set is guaranteed
+	// to be equal or less than options.ConcurrentTasks
 	for _, set := range s.tasks {
 		if err := s.runner.Run(ctx, set); err != nil {
 			return err
