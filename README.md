@@ -1,4 +1,4 @@
-# cgscheduler
+# cgscheduler [![Build Status](https://travis-ci.org/jackwakefield/cgscheduler.svg?branch=master)](https://travis-ci.org/jackwakefield/cgscheduler) [![Coverage Status](https://coveralls.io/repos/github/jackwakefield/cgscheduler/badge.svg?branch=master)](https://coveralls.io/github/jackwakefield/cgscheduler?branch=master)
 
 A concurrent scheduler for tasks with dependencies.
 
